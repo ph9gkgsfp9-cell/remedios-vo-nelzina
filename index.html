@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lembretes da Vovó</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #1a1a2e;
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    #tela-normal {
+      padding: 30px;
+    }
+
+    #relogio {
+      font-size: 80px;
+      font-weight: bold;
+      color: #e0e0e0;
+    }
+
+    #data {
+      font-size: 28px;
+      color: #aaa;
+      margin-top: 10px;
+      margin-bottom: 40px;
+    }
+
+    #proximos {
+      font-size: 22px;
+      color: #ccc;
+      line-height: 2;
+    }
+
+    /* Tela de alarme */
+    #tela-alarme {
+      display: none;
+      background: #e63946;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      animation: piscar 1s infinite;
+    }
+
+    @keyframes piscar {
+      0%, 100% { background: #e63946; }
+      50% { background: #c1121f; }
+    }
+
+    #icone-alarme {
+      font-size: 100px;
+      margin-bottom: 20px;
+    }
+
+    #mensagem-alarme {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      line-height: 1.3;
+    }
+
+    #detalhe-alarme {
+      font-size: 30px;
+      margin-bottom: 50px;
+      color: #ffd;
+    }
+
+    #btn-ok {
+      background: white;
+      color: #e63946;
+      border: none;
+      font-size: 40px;
+      font-weight: bold;
+      padding: 25px 60px;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    #btn-ok:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Tela normal: relógio + próximos lembretes -->
+  <div id="tela-normal">
+    <div id="relogio">00:00</div>
+    <div id="data"></div>
+    <div id="proximos">Carregando lembretes...</div>
+  </div>
+
+  <!-- Tela de alarme (aparece quando bate o horário) -->
+  <div id="tela-alarme">
+    <div id="icone-alarme">💊</div>
+    <div id="mensagem-alarme">Hora do remédio!</div>
+    <div id="detalhe-alarme"></div>
+    <button id="btn-ok" onclick="desligarAlarme()">✅ Já fiz!</button>
+  </div>
+
+  <!-- Som do alarme (gerado por código, sem precisar de arquivo) -->
+  <script>
+    // ─── LEMBRETES ─────────────────────────────────────────────
+    // Edite aqui os horários e mensagens da vovó
+    // Formato: { hora: "HH:MM", mensagem: "...", detalhe: "..." }
+    const lembretes = [
+      { hora: "08:00", mensagem: "Hora do remédio!", detalhe: "Captopril + Aspirina" },
+      { hora: "12:00", mensagem: "Hora do almoço!", detalhe: "Tome o remédio depois de comer" },
+      { hora: "18:00", mensagem: "Remédio da tarde!", detalhe: "Metformina" },
+      { hora: "21:00", mensagem: "Remédio da noite!", detalhe: "Sinvastatina" },
+    ];
+    // ────────────────────────────────────────────────────────────
+
+    let alarmeAtivo = false;
+    let somIntervalo = null;
+    let audioCtx = null;
+
+    // Cria o contexto de áudio uma vez
+    function getAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    // Toca um bipe alto
+    function tocarBipe() {
+      const ctx = getAudio();
+      const notas = [880, 660, 880, 660];
+      let tempo = ctx.currentTime;
+      notas.forEach(freq => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = "square";
+        gain.gain.setValueAtTime(1, tempo);
+        osc.start(tempo);
+        osc.stop(tempo + 0.2);
+        tempo += 0.25;
+      });
+    }
+
+    // Dispara o alarme na tela
+    function dispararAlarme(lembrete) {
+      if (alarmeAtivo) return;
+      alarmeAtivo = true;
+
+      document.getElementById("mensagem-alarme").textContent = lembrete.mensagem;
+      document.getElementById("detalhe-alarme").textContent = lembrete.detalhe;
+      document.getElementById("tela-alarme").style.display = "flex";
+
+      // Toca o bipe a cada 3 segundos
+      tocarBipe();
+      somIntervalo = setInterval(tocarBipe, 3000);
+    }
+
+    // Desliga o alarme quando ela aperta "Já fiz!"
+    function desligarAlarme() {
+      alarmeAtivo = false;
+      clearInterval(somIntervalo);
+      document.getElementById("tela-alarme").style.display = "none";
+    }
+
+    // Atualiza o relógio e verifica os lembretes
+    function verificarHorario() {
+      const agora = new Date();
+      const hh = String(agora.getHours()).padStart(2, "0");
+      const mm = String(agora.getMinutes()).padStart(2, "0");
+      const horaAtual = `${hh}:${mm}`;
+
+      // Atualiza relógio na tela
+      document.getElementById("relogio").textContent = horaAtual;
+
+      // Atualiza data
+      const dias = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+      const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+      document.getElementById("data").textContent =
+        `${dias[agora.getDay()]}, ${agora.getDate()} de ${meses[agora.getMonth()]}`;
+
+      // Verifica se tem lembrete agora
+      if (!alarmeAtivo) {
+        lembretes.forEach(l => {
+          if (l.hora === horaAtual && agora.getSeconds() < 30) {
+            dispararAlarme(l);
+          }
+        });
+      }
+
+      // Mostra próximos lembretes
+      const proximos = lembretes
+        .filter(l => l.hora > horaAtual)
+        .slice(0, 3);
+
+      if (proximos.length > 0) {
+        document.getElementById("proximos").innerHTML =
+          "<b>Próximos lembretes:</b><br>" +
+          proximos.map(l => `🕐 ${l.hora} — ${l.mensagem}`).join("<br>");
+      } else {
+        document.getElementById("proximos").textContent = "Nenhum lembrete para hoje 🌙";
+      }
+    }
+
+    // Roda a cada 5 segundos
+    setInterval(verificarHorario, 5000);
+    verificarHorario(); // roda na hora que abre
+  </script>
+
+</body>
+</html>
